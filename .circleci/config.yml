@@ -2,6 +2,8 @@ version: 2.1
 
 orbs:
   gh: circleci/github-cli@1.0.4
+  global_search_slack_notify: cookpad/global_search_slack_notify@2
+  global_search_jobs cookpad/global_search_jobs@1
 
 parameters:
   project_name:
@@ -97,23 +99,34 @@ jobs: # A basic unit of work in a run
   publish:
     working_directory: << pipeline.parameters.working_directory >>
     docker: # run the steps with Docker
-      - image: cimg/python:<< pipeline.parameters.python_version >>
+      - image: cimg/ruby:3.2.2
     steps:
       - attach_workspace:
           at: << pipeline.parameters.working_directory >>
       - run:
-          name: Upload to pypi
+          name: Install package_cloud
           command: |
-            VERSION=$(poetry version -s)
-            VERSION_EXISTS=$( \
-              curl -Ls https://pypi.org/pypi/<< pipeline.parameters.project_name >>/json | \
-                jq -r '.releases | keys_unsorted' | \
-                grep -q "\"$VERSION\"" ; echo $? \
-            )
-            if [[ $VERSION_EXISTS -ne 0 ]]; then
-              poetry publish --username "__token__" --password $PYPI_API_TOKEN
-            else
-              echo "Package with this version has been already release. Skipping."
+            gem install package_cloud
+      - run:
+          name: Deploy to package cloud
+          command: package_cloud push cookpad-global/issue-watcher/python ./dist/* --skip-errors
+      - global_search_slack_notify/if_branch_failed
+
+  tag_release:
+    working_directory: << pipeline.parameters.working_directory >>
+    docker:
+      - image: cimg/python:<< pipeline.parameters.python_version >>
+        environment:
+          PIPENV_VENV_IN_PROJECT: true
+    steps:
+      - checkout
+      - run:
+          name: Check if current version has been tagged
+          command: |
+            VERSION=$(grep -E '^## +\[v[^]]+\]' CHANGELOG.md | head -n 1 | sed 's/#* \[//;s/\].*//')
+            if [[ $(git tag -l "$VERSION") ]]; then
+              echo "Tag '$VERSION' already exists. Skipping."
+              circleci-agent step halt
             fi
 
   release:
@@ -152,18 +165,12 @@ workflows:
           requires:
             - test
       - publish:
-          name: Publish to Pypi
-          context: pypi_upload
+          name: Upload libraries to Packagecloud
+          context:
+            - global-search-slack
+            - global-search-packagecloud-push
           requires:
             - Build
           filters:
             branches:
-              only: << pipeline.parameters.git_trunk_branch >>
-      - release:
-          context:
-            - github
-          requires:
-            - Publish to Pypi
-          filters:
-            branches:
-              only: << pipeline.parameters.git_trunk_branch >>
+              only: main
