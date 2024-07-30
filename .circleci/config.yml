@@ -3,7 +3,7 @@ version: 2.1
 orbs:
   gh: circleci/github-cli@1.0.4
   global_search_slack_notify: cookpad/global_search_slack_notify@2
-  global_search_jobs cookpad/global_search_jobs@1
+  global_search_jobs: cookpad/global_search_jobs@1
 
 parameters:
   project_name:
