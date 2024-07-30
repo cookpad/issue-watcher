@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "issue-watcher"
-version = "5.0.0"
+version = "5.0.1"
 description = "Python test cases watching when an issue is closed and failing a test to let you know fixed functionality is available."
 authors = ["Radek Lát <radek.lat@gmail.com>"]
 license = "MIT License"
@@ -28,7 +28,7 @@ keywords = ["pytest", "github", "issues", "testing"]
 homepage = "https://github.com/radeklat/issue-watcher"
 
 [tool.poetry.dependencies]
-python = ">=3.7.2,<=3.11"
+python = ">=3.9,<=3.13"
 packaging = "*"
 requests = "*"
 semver = "*"
